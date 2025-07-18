@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventaris Modern (Online)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #e2e8f0; }
+        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        .modal { display: none; animation: fadeIn 0.3s ease-out; }
+        .modal.show { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .dropdown-menu { display: none; animation: slideIn 0.2s ease-out; }
+        .dropdown-menu.show { display: block; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .transition-all { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        #qrcode-container > canvas { display: block; margin: auto; }
+        .group .group-hover\:opacity-100 { opacity: 0; transition: opacity 0.2s ease-in-out; }
+        .group:hover .group-hover\:opacity-100 { opacity: 1; }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="bg-white/80 backdrop-blur-lg shadow-sm sticky top-0 z-20 border-b border-slate-200">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <h1 class="text-xl sm:text-2xl font-bold text-slate-900">Inventaris Modern</h1>
+                    <button id="scanBarcodeNavBtn" class="bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 font-semibold py-2 px-4 rounded-lg transition-all flex items-center gap-2 shadow-sm hover:shadow-md">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M0 .5A.5.5 0 0 1 .5 0h3a.5.5 0 0 1 0 1H1v2.5a.5.5 0 0 1-1 0v-3Zm12 0a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-1 0V1h-2.5a.5.5 0 0 1-.5-.5ZM.5 12a.5.5 0 0 1 .5.5V15h2.5a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5v-3a.5.5 0 0 1 .5-.5Zm15 0a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1 0-1H15v-2.5a.5.5 0 0 1 .5-.5Z M4 4h1v1H4V4Z"/><path d="M7 2H2v5h5V2ZM3 3h3v3H3V3Zm2 8H4v1h1v-1Z"/><path d="M7 9H2v5h5V9Zm-4 1h3v3H3v-3Zm8-6h1v1h-1V4Z"/><path d="M9 2h5v5H9V2Zm1 1v3h3V3h-3ZM8 8v2h1v1H8v1h2v-2h1v2h1v-1h2v-1h-1v-1H9V8H8Zm1 1h1v1H9V9Zm2 2h1v1h-1v-1ZM8 5h1v1H8V5Zm5 5h1v1h-1v-1Zm-3 0h1v1h-1v-1Z"/><path d="M12 9h2V8h-2v1Z"/></svg>
+                        <span class="hidden sm:inline">Scan Ruangan</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <aside class="lg:col-span-4 xl:col-span-3 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-semibold text-slate-800">Daftar Ruangan</h2><button id="addRoomBtn" class="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 font-semibold py-2 px-3 rounded-lg transition-all">+ Tambah</button></div>
+                    <div id="roomListContainer" class="space-y-2 max-h-[60vh] overflow-y-auto pr-2"></div>
+                </aside>
+                <section class="lg:col-span-8 xl:col-span-9 bg-white p-6 rounded-xl shadow-sm border border-slate-200 min-h-[75vh] flex flex-col">
+                    <div id="itemDisplayArea" class="flex-grow">
+                        <div id="welcomeMessage" class="flex flex-col items-center justify-center h-full text-center py-20"><svg class="h-24 w-24 text-slate-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg><h3 class="mt-2 text-xl font-semibold text-slate-700">Selamat Datang</h3><p class="mt-1 text-slate-500">Pilih ruangan atau scan QR code untuk memulai.</p></div>
+                        <div id="roomContent" class="hidden">
+                             <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+                                <h2 id="roomNameHeader" class="text-2xl font-bold text-slate-900"></h2>
+                                <div class="flex flex-wrap gap-2">
+                                    <button id="downloadExcelBtn" class="bg-emerald-600 text-white hover:bg-emerald-700 font-semibold py-2 px-4 rounded-lg transition-all flex items-center gap-2 shadow-sm hover:shadow-md"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>Unduh Excel</button>
+                                    <button id="generateQRBtn" class="bg-slate-700 text-white hover:bg-slate-800 font-semibold py-2 px-4 rounded-lg transition-all flex items-center gap-2 shadow-sm hover:shadow-md">QR</button>
+                                    <button id="addItemBtn" class="bg-indigo-600 text-white hover:bg-indigo-700 font-semibold py-2 px-4 rounded-lg transition-all flex items-center gap-2 shadow-sm hover:shadow-md">+ Tambah</button>
+                                </div>
+                            </div>
+                            <div id="itemGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+                            <div id="noItemsMessage" class="hidden flex-col items-center justify-center h-full text-center py-20"><svg class="h-24 w-24 text-slate-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg><h3 class="mt-2 text-xl font-semibold text-slate-700">Belum Ada Barang</h3><p class="mt-1 text-slate-500">Klik tombol "+ Tambah" untuk memulai.</p></div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="text-center py-4 mt-auto">
+            <p class="text-sm text-slate-500">Copyright &copy; 2025 by Aku. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <!-- Modals (Struktur HTML tidak berubah) -->
+    <div id="addEditRoomModal" class="modal fixed inset-0 bg-black/60 z-30 items-center justify-center p-4"><div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md"><h3 id="roomModalTitle" class="text-2xl font-bold mb-6"></h3><form id="addEditRoomForm"><div><label for="roomNameInput" class="block text-sm font-medium text-slate-700 mb-2">Nama Ruangan</label><input type="text" id="roomNameInput" class="w-full border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500" required></div><div class="mt-8 flex justify-end gap-3"><button type="button" class="modal-cancel bg-slate-100 text-slate-800 hover:bg-slate-200 font-semibold py-2 px-4 rounded-lg transition-all">Batal</button><button type="submit" class="bg-indigo-600 text-white hover:bg-indigo-700 font-semibold py-2 px-4 rounded-lg transition-all">Simpan</button></div></form></div></div>
+    <div id="addEditItemModal" class="modal fixed inset-0 bg-black/60 z-30 items-center justify-center p-4"><div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md"><h3 id="itemModalTitle" class="text-2xl font-bold mb-6"></h3><form id="addEditItemForm"><div class="space-y-4"><div><label for="itemName" class="block text-sm font-medium text-slate-700 mb-2">Nama Barang</label><input type="text" id="itemName" class="w-full border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500" required></div><div><label for="itemCategory" class="block text-sm font-medium text-slate-700 mb-2">Kategori</label><input type="text" id="itemCategory" class="w-full border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500" required></div><div><label for="itemDescription" class="block text-sm font-medium text-slate-700 mb-2">Keterangan</label><textarea id="itemDescription" rows="3" class="w-full border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea></div><div><label for="itemPhoto" class="block text-sm font-medium text-slate-700 mb-2">Foto Barang</label><input type="file" id="itemPhoto" accept="image/*" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition-all"><img id="photoPreview" src="#" alt="Pratinjau Foto" class="mt-4 rounded-lg hidden max-h-40 mx-auto"/></div></div><div class="mt-8 flex justify-end gap-3"><button type="button" class="modal-cancel bg-slate-100 text-slate-800 hover:bg-slate-200 font-semibold py-2 px-4 rounded-lg transition-all">Batal</button><button type="submit" class="bg-indigo-600 text-white hover:bg-indigo-700 font-semibold py-2 px-4 rounded-lg flex items-center justify-center transition-all">Simpan</button></div></form></div></div>
+    <div id="qrCodeModal" class="modal fixed inset-0 bg-black/60 z-30 items-center justify-center p-4"><div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-xs text-center"><h3 class="text-2xl font-bold mb-2">QR Code Ruangan</h3><p id="qrCodeRoomName" class="text-slate-600 mb-6"></p><div id="qrcode-container" class="p-4 border rounded-lg bg-white"><div id="qrcode"></div></div><div class="mt-8 flex justify-end gap-3"><button type="button" class="modal-cancel bg-slate-100 text-slate-800 hover:bg-slate-200 font-semibold py-2 px-4 rounded-lg transition-all">Tutup</button><button type="button" id="downloadQRBtn" class="bg-indigo-600 text-white hover:bg-indigo-700 font-semibold py-2 px-4 rounded-lg transition-all">Unduh</button></div></div></div>
+    <div id="scannerModal" class="modal fixed inset-0 bg-black/60 z-30 items-center justify-center p-4"><div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md text-center"><h3 class="text-2xl font-bold mb-4">Pindai QR Code Ruangan</h3><div id="reader" class="w-full rounded-lg overflow-hidden border"></div><div id="scanStatus" class="mt-4 text-sm h-5">Arahkan kamera ke QR code...</div><div class="mt-6"><button type="button" id="stopScanBtn" class="modal-cancel w-full bg-red-600 text-white hover:bg-red-700 font-semibold py-2 px-4 rounded-lg transition-all">Tutup Scanner</button></div></div></div>
+    <div id="deleteConfirmationModal" class="modal fixed inset-0 bg-black/60 z-30 items-center justify-center p-4"><div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md text-center"><svg class="mx-auto h-16 w-16 text-red-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg><h3 id="deleteModalTitle" class="text-2xl font-bold mb-2">Anda Yakin?</h3><p id="deleteModalText" class="text-slate-500 mb-6"></p><div class="flex justify-center gap-4"><button type="button" class="modal-cancel bg-slate-100 text-slate-800 hover:bg-slate-200 font-semibold py-2 px-6 rounded-lg transition-all">Batal</button><button type="button" id="confirmDeleteBtn" class="bg-red-600 text-white hover:bg-red-700 font-semibold py-2 px-6 rounded-lg transition-all">Hapus</button></div></div></div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        // ===================================================================================
+        // PASTE KONFIGURASI FIREBASE ANDA DI SINI
+        // ===================================================================================
+        const firebaseConfig = {
+            apiKey: "GANTI_DENGAN_API_KEY_ANDA",
+            authDomain: "GANTI_DENGAN_AUTH_DOMAIN_ANDA",
+            projectId: "GANTI_DENGAN_PROJECT_ID_ANDA",
+            storageBucket: "GANTI_DENGAN_STORAGE_BUCKET_ANDA",
+            messagingSenderId: "GANTI_DENGAN_MESSAGING_SENDER_ID_ANDA",
+            appId: "GANTI_DENGAN_APP_ID_ANDA"
+        };
+        // ===================================================================================
+        // AKHIR DARI AREA KONFIGURASI
+        // ===================================================================================
+
+        // Import fungsi yang diperlukan dari Firebase SDK
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { 
+            getFirestore, collection, query, onSnapshot, 
+            addDoc, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove 
+        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        // Inisialisasi Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // --- State and DOM Elements (Sama seperti sebelumnya) ---
+        let rooms = [];
+        let selectedRoomId = null;
+        let editingRoomId = null;
+        let editingItemId = null;
+        let itemToDelete = null;
+        let roomToDelete = null;
+        let html5QrCode = null;
+        let qrCodeInstance = null;
+
+        const get = (id) => document.getElementById(id);
+        const addRoomBtn = get('addRoomBtn');
+        const roomListContainer = get('roomListContainer');
+        const welcomeMessage = get('welcomeMessage');
+        const roomContent = get('roomContent');
+        const roomNameHeader = get('roomNameHeader');
+        const itemGrid = get('itemGrid');
+        const noItemsMessage = get('noItemsMessage');
+        const addItemBtn = get('addItemBtn');
+        const generateQRBtn = get('generateQRBtn');
+        const downloadExcelBtn = get('downloadExcelBtn');
+        const scanBarcodeNavBtn = get('scanBarcodeNavBtn');
+        const modals = { addEditRoom: get('addEditRoomModal'), addEditItem: get('addEditItemModal'), qrCode: get('qrCodeModal'), scanner: get('scannerModal'), deleteConfirmation: get('deleteConfirmationModal') };
+        const forms = { addEditRoom: get('addEditRoomForm'), addEditItem: get('addEditItemForm') };
+        const inputs = { roomName: get('roomNameInput'), itemName: get('itemName'), itemCategory: get('itemCategory'), itemDescription: get('itemDescription'), itemPhoto: get('itemPhoto') };
+        const photoPreview = get('photoPreview');
+        const qrCodeRoomName = get('qrCodeRoomName');
+        const downloadQRBtn = get('downloadQRBtn');
+        const qrcodeContainer = get('qrcode');
+        const scanStatus = get('scanStatus');
+        const roomModalTitle = get('roomModalTitle');
+        const itemModalTitle = get('itemModalTitle');
+        const deleteModalTitle = get('deleteModalTitle');
+        const deleteModalText = get('deleteModalText');
+        const confirmDeleteBtn = get('confirmDeleteBtn');
+
+        // --- Render Functions (Sama seperti sebelumnya) ---
+        const renderRooms = () => {
+            roomListContainer.innerHTML = '';
+            if (rooms.length === 0) {
+                roomListContainer.innerHTML = `<p class="text-center text-slate-500 p-4">Belum ada ruangan.</p>`;
+            } else {
+                rooms.forEach(room => {
+                    const roomElement = document.createElement('div');
+                    roomElement.className = 'group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all';
+                    roomElement.classList.toggle('bg-indigo-600', room.id === selectedRoomId);
+                    roomElement.classList.toggle('text-white', room.id === selectedRoomId);
+                    roomElement.classList.toggle('font-semibold', room.id === selectedRoomId);
+                    roomElement.classList.toggle('shadow-md', room.id === selectedRoomId);
+                    roomElement.classList.toggle('hover:bg-slate-100', room.id !== selectedRoomId);
+                    roomElement.classList.toggle('text-slate-700', room.id !== selectedRoomId);
+                    
+                    const roomNameSpan = document.createElement('span');
+                    roomNameSpan.textContent = room.name;
+                    roomNameSpan.className = 'flex-grow';
+                    roomNameSpan.addEventListener('click', () => selectRoom(room.id));
+                    
+                    const menuContainer = document.createElement('div');
+                    menuContainer.className = 'relative';
+
+                    const menuButton = document.createElement('button');
+                    menuButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/></svg>`;
+                    menuButton.className = 'group-hover:opacity-100 p-1 rounded-full hover:bg-black/10 transition-opacity';
+                    menuButton.classList.toggle('opacity-100', room.id === selectedRoomId);
+                    menuButton.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        toggleDropdown(e.currentTarget.nextElementSibling);
+                    });
+
+                    const dropdownMenu = document.createElement('div');
+                    dropdownMenu.className = 'dropdown-menu absolute right-0 mt-2 w-32 bg-white rounded-md shadow-lg z-10 border border-slate-200';
+                    dropdownMenu.innerHTML = `
+                        <a href="#" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-100" data-action="edit-room" data-id="${room.id}">Edit</a>
+                        <a href="#" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50" data-action="delete-room" data-id="${room.id}">Hapus</a>
+                    `;
+                    
+                    menuContainer.appendChild(menuButton);
+                    menuContainer.appendChild(dropdownMenu);
+                    roomElement.appendChild(roomNameSpan);
+                    roomElement.appendChild(menuContainer);
+                    roomListContainer.appendChild(roomElement);
+                });
+            }
+        };
+
+        const renderItems = () => {
+            if (!selectedRoomId) {
+                welcomeMessage.style.display = 'flex';
+                roomContent.style.display = 'none';
+                return;
+            }
+            welcomeMessage.style.display = 'none';
+            roomContent.style.display = 'block';
+            const room = rooms.find(r => r.id === selectedRoomId);
+            if (!room) return;
+            roomNameHeader.textContent = room.name;
+            itemGrid.innerHTML = '';
+            if (!room.items || room.items.length === 0) {
+                noItemsMessage.style.display = 'flex';
+                itemGrid.style.display = 'none';
+            } else {
+                noItemsMessage.style.display = 'none';
+                itemGrid.style.display = 'grid';
+                room.items.forEach(item => {
+                    const itemCard = document.createElement('div');
+                    itemCard.className = 'group bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all flex flex-col';
+                    itemCard.innerHTML = `
+                        <div class="relative">
+                            <img src="${item.photo}" alt="${item.name}" class="w-full h-48 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/400x300/e2e8f0/64748b?text=Gambar+Rusak';">
+                            <div class="absolute top-2 right-2">
+                                <button class="item-menu-btn group-hover:opacity-100 opacity-0 p-1.5 rounded-full bg-black/40 text-white hover:bg-black/60 transition-opacity" data-id="${item.id}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/></svg>
+                                </button>
+                                <div class="dropdown-menu absolute right-0 mt-2 w-32 bg-white rounded-md shadow-lg z-10 border border-slate-200">
+                                    <a href="#" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-100" data-action="edit-item" data-id="${item.id}">Edit</a>
+                                    <a href="#" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50" data-action="delete-item" data-id="${item.id}">Hapus</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-4 flex flex-col flex-grow">
+                            <p class="text-sm text-indigo-600 font-semibold">${item.category}</p>
+                            <h4 class="font-bold text-lg text-slate-800 truncate mt-1" title="${item.name}">${item.name}</h4>
+                            <p class="text-sm text-slate-500 mt-2 flex-grow">${item.description || ''}</p>
+                        </div>
+                    `;
+                    itemGrid.appendChild(itemCard);
+                });
+            }
+        };
+        
+        // --- Firestore Real-time Listener ---
+        const q = query(collection(db, "rooms"));
+        onSnapshot(q, (querySnapshot) => {
+            const loadedRooms = [];
+            querySnapshot.forEach((doc) => {
+                loadedRooms.push({ id: doc.id, ...doc.data() });
+            });
+            rooms = loadedRooms;
+            renderRooms();
+            // Re-render items if the selected room still exists
+            if (selectedRoomId && rooms.find(r => r.id === selectedRoomId)) {
+                renderItems();
+            } else {
+                // If selected room was deleted, reset view
+                selectedRoomId = null;
+                renderItems();
+            }
+        });
+
+        // --- UI Handlers (Modals, Dropdowns, etc) ---
+        const toggleDropdown = (menu) => {
+            document.querySelectorAll('.dropdown-menu.show').forEach(openMenu => {
+                if (openMenu !== menu) openMenu.classList.remove('show');
+            });
+            menu.classList.toggle('show');
+        };
+        const openModal = (modal) => modal.classList.add('show');
+        const closeModal = (modal) => modal.classList.remove('show');
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.relative')) {
+                document.querySelectorAll('.dropdown-menu.show').forEach(menu => menu.classList.remove('show'));
+            }
+            if (e.target.classList.contains('modal-cancel')) {
+                closeModal(e.target.closest('.modal'));
+            }
+            const target = e.target.closest('a[data-action]');
+            if (target) {
+                e.preventDefault();
+                const { action, id } = target.dataset;
+                if (action === 'edit-room') handleEditRoom(id);
+                if (action === 'delete-room') handleDeleteRoom(id);
+                if (action === 'edit-item') handleEditItem(id);
+                if (action === 'delete-item') handleDeleteItem(id);
+                toggleDropdown(target.closest('.dropdown-menu'));
+            }
+            const itemMenuBtn = e.target.closest('.item-menu-btn');
+            if (itemMenuBtn) {
+                e.stopPropagation();
+                toggleDropdown(itemMenuBtn.nextElementSibling);
+            }
+        });
+        const selectRoom = (roomId) => { selectedRoomId = roomId; renderRooms(); renderItems(); };
+
+        // --- Firestore CRUD Handlers ---
+        addRoomBtn.addEventListener('click', () => {
+            editingRoomId = null;
+            roomModalTitle.textContent = 'Tambah Ruangan Baru';
+            forms.addEditRoom.reset();
+            openModal(modals.addEditRoom);
+        });
+
+        const handleEditRoom = (roomId) => {
+            const room = rooms.find(r => r.id === roomId);
+            if (!room) return;
+            editingRoomId = roomId;
+            roomModalTitle.textContent = 'Edit Nama Ruangan';
+            inputs.roomName.value = room.name;
+            openModal(modals.addEditRoom);
+        };
+
+        const handleDeleteRoom = (roomId) => {
+            const room = rooms.find(r => r.id === roomId);
+            if (!room) return;
+            roomToDelete = roomId;
+            itemToDelete = null;
+            deleteModalTitle.textContent = `Hapus Ruangan "${room.name}"?`;
+            deleteModalText.textContent = `Semua barang di dalam ruangan ini juga akan terhapus. Aksi ini tidak dapat dibatalkan.`;
+            openModal(modals.deleteConfirmation);
+        };
+
+        forms.addEditRoom.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const roomName = inputs.roomName.value;
+            if (editingRoomId) {
+                const roomRef = doc(db, "rooms", editingRoomId);
+                await updateDoc(roomRef, { name: roomName });
+            } else {
+                const newRoomRef = await addDoc(collection(db, "rooms"), { name: roomName, items: [] });
+                selectRoom(newRoomRef.id);
+            }
+            closeModal(modals.addEditRoom);
+        });
+
+        addItemBtn.addEventListener('click', () => {
+            editingItemId = null;
+            itemModalTitle.textContent = 'Tambah Barang Baru';
+            forms.addEditItem.reset();
+            photoPreview.classList.add('hidden');
+            photoPreview.src = '#';
+            openModal(modals.addEditItem);
+        });
+
+        const handleEditItem = (itemId) => {
+            const room = rooms.find(r => r.id === selectedRoomId);
+            const item = room?.items.find(i => i.id === itemId);
+            if (!item) return;
+            editingItemId = itemId;
+            itemModalTitle.textContent = 'Edit Barang';
+            inputs.itemName.value = item.name;
+            inputs.itemCategory.value = item.category;
+            inputs.itemDescription.value = item.description || '';
+            photoPreview.src = item.photo;
+            photoPreview.classList.remove('hidden');
+            openModal(modals.addEditItem);
+        };
+
+        const handleDeleteItem = (itemId) => {
+            const room = rooms.find(r => r.id === selectedRoomId);
+            const item = room?.items.find(i => i.id === itemId);
+            if (!item) return;
+            itemToDelete = item; // Store the whole item object
+            roomToDelete = null;
+            deleteModalTitle.textContent = `Hapus Barang "${item.name}"?`;
+            deleteModalText.textContent = `Aksi ini tidak dapat dibatalkan.`;
+            openModal(modals.deleteConfirmation);
+        };
+
+        forms.addEditItem.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const room = rooms.find(r => r.id === selectedRoomId);
+            if (!room) return;
+            const submitBtn = forms.addEditItem.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Menyimpan...`;
+
+            try {
+                const roomRef = doc(db, "rooms", selectedRoomId);
+                if (editingItemId) {
+                    // This is an edit operation
+                    const itemIndex = room.items.findIndex(i => i.id === editingItemId);
+                    if (itemIndex > -1) {
+                        const updatedItems = [...room.items];
+                        updatedItems[itemIndex] = {
+                            ...updatedItems[itemIndex],
+                            name: inputs.itemName.value,
+                            category: inputs.itemCategory.value,
+                            description: inputs.itemDescription.value,
+                            photo: photoPreview.src
+                        };
+                        await updateDoc(roomRef, { items: updatedItems });
+                    }
+                } else {
+                    // This is an add operation
+                    const newItem = {
+                        id: `item_${Date.now()}`,
+                        name: inputs.itemName.value,
+                        category: inputs.itemCategory.value,
+                        description: inputs.itemDescription.value,
+                        photo: photoPreview.src
+                    };
+                    await updateDoc(roomRef, { items: arrayUnion(newItem) });
+                }
+                closeModal(modals.addEditItem);
+            } catch (error) {
+                console.error("Gagal menyimpan barang:", error);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+            }
+        });
+
+        confirmDeleteBtn.addEventListener('click', async () => {
+            if (roomToDelete) {
+                await deleteDoc(doc(db, "rooms", roomToDelete));
+                roomToDelete = null;
+            }
+            if (itemToDelete) {
+                const roomRef = doc(db, "rooms", selectedRoomId);
+                await updateDoc(roomRef, { items: arrayRemove(itemToDelete) });
+                itemToDelete = null;
+            }
+            closeModal(modals.deleteConfirmation);
+        });
+
+        // --- Other Handlers (Excel, QR, Scanner) ---
+        // (Kode untuk fungsi-fungsi ini sama seperti versi sebelumnya, tidak perlu diubah)
+        inputs.itemPhoto.addEventListener('change', (e) => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (event) => { photoPreview.src = event.target.result; photoPreview.classList.remove('hidden'); }; reader.readAsDataURL(file); } });
+        downloadExcelBtn.addEventListener('click', () => { const room = rooms.find(r => r.id === selectedRoomId); if (!room || !room.items || room.items.length === 0) { alert("Tidak ada barang untuk diunduh."); return; } const btn = downloadExcelBtn; const originalBtnHTML = btn.innerHTML; btn.disabled = true; btn.innerHTML = `<svg class="animate-spin -ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Memproses...`; setTimeout(() => { try { const dataForExcel = room.items.map(item => ({ "Nama Barang": item.name, "Kategori": item.category, "Keterangan": item.description, "Gambar": "Klik untuk melihat" })); const ws = XLSX.utils.json_to_sheet(dataForExcel); ws['!cols'] = [ { wch: 30 }, { wch: 25 }, { wch: 40 }, { wch: 20 } ]; room.items.forEach((item, index) => { const cellAddress = 'D' + (index + 2); if(!ws[cellAddress]) ws[cellAddress] = {v: ""}; ws[cellAddress].l = { Target: item.photo, Tooltip: `Klik untuk melihat gambar ${item.name}` }; }); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Daftar Barang"); const safeFileName = room.name.replace(/[^a-z0-9]/gi, '_').toLowerCase(); XLSX.writeFile(wb, `inventaris_${safeFileName}.xlsx`); } catch (error) { console.error("Gagal membuat file Excel:", error); alert("Terjadi kesalahan."); } finally { btn.disabled = false; btn.innerHTML = originalBtnHTML; } }, 500); });
+        generateQRBtn.addEventListener('click', () => { const room = rooms.find(r => r.id === selectedRoomId); if (!room) return; qrCodeRoomName.textContent = room.name; qrcodeContainer.innerHTML = ''; qrCodeInstance = new QRCode(qrcodeContainer, { text: room.id, width: 200, height: 200, colorDark: "#000000", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H }); openModal(modals.qrCode); });
+        downloadQRBtn.addEventListener('click', () => { const room = rooms.find(r => r.id === selectedRoomId); if (!room || !qrCodeInstance) return; const canvas = qrcodeContainer.querySelector('canvas'); const link = document.createElement('a'); link.href = canvas.toDataURL('image/png'); const safeFileName = room.name.replace(/[^a-z0-9]/gi, '_').toLowerCase(); link.download = `QR_Code_${safeFileName}.png`; document.body.appendChild(link); link.click(); document.body.removeChild(link); });
+        const onScanSuccess = async (decodedText) => { const foundRoom = rooms.find(r => r.id === decodedText); if (foundRoom) { scanStatus.textContent = `Ditemukan: ${foundRoom.name}!`; scanStatus.style.color = '#10b981'; await sleep(1500); stopScanner(); closeModal(modals.scanner); selectRoom(foundRoom.id); } else { scanStatus.textContent = 'QR Code tidak dikenali.'; scanStatus.style.color = '#ef4444'; } };
+        const startScanner = () => { if (!html5QrCode) html5QrCode = new Html5Qrcode("reader"); openModal(modals.scanner); scanStatus.textContent = 'Arahkan kamera ke QR code...'; scanStatus.style.color = 'inherit'; html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScanSuccess, () => {}).catch(err => { scanStatus.textContent = "Gagal memulai kamera."; }); };
+        const stopScanner = () => { if (html5QrCode && html5QrCode.isScanning) { html5QrCode.stop().catch(err => console.error("Gagal stop scanner.", err)); } };
+        scanBarcodeNavBtn.addEventListener('click', startScanner);
+    </script>
+</body>
+</html>
